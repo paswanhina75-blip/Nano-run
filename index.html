@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Runner</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            margin: 0;
+            background: #111;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        #game {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(#182848, #4b6cb7);
+        }
+
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        #high {
+            position: absolute;
+            top: 52px;
+            left: 20px;
+            color: white;
+            font-size: 15px;
+            z-index: 10;
+        }
+
+        #player {
+            position: absolute;
+            width: 45px;
+            height: 55px;
+            left: 70px;
+            bottom: 90px;
+            background: #00ffcc;
+            border-radius: 12px;
+            box-shadow: 0 0 20px #00ffcc;
+        }
+
+        .eye {
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            background: #111;
+            border-radius: 50%;
+            top: 12px;
+        }
+
+        .eye.one {
+            left: 10px;
+        }
+        .eye.two {
+            right: 10px;
+        }
+
+        #ground {
+            position: absolute;
+            bottom: 0;
+            height: 90px;
+            width: 100%;
+            background: #111;
+            border-top: 4px solid #00ffcc;
+        }
+
+        .obstacle {
+            position: absolute;
+            bottom: 90px;
+            width: 35px;
+            height: 55px;
+            background: #ff3b6b;
+            border-radius: 6px;
+            box-shadow: 0 0 15px #ff3b6b;
+        }
+
+        #startScreen,
+        #gameOver {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            background: rgba(0,0,0,.45);
+            z-index: 20;
+            text-align: center;
+        }
+
+        #gameOver {
+            display: none;
+        }
+
+        h1 {
+            font-size: 42px;
+            margin: 10px;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            padding: 15px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            background: #00ffcc;
+            color: #111;
+        }
+
+        #hint {
+            margin-top: 15px;
+            font-size: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game">
+
+        <div id="score">
+            Score: 0
+        </div>
+        <div id="high">
+            Best: 0
+        </div>
+
+        <div id="startScreen">
+            <h1>NEON RUNNER</h1>
+            <p>
+                Tap the screen to jump!
+            </p>
+            <button onclick="startGame()">START</button>
+        </div>
+
+        <div id="gameOver">
+            <h1>GAME OVER 💥</h1>
+            <p id="finalScore">
+                Score: 0
+            </p>
+            <button onclick="startGame()">RESTART</button>
+        </div>
+
+        <div id="player">
+            <div class="eye one"></div>
+            <div class="eye two"></div>
+        </div>
+
+        <div id="ground"></div>
+
+    </div>
+
+    <script>
+        const game = document.getElementById("game");
+        const player = document.getElementById("player");
+        const scoreText = document.getElementById("score");
+        const highText = document.getElementById("high");
+        const startScreen = document.getElementById("startScreen");
+        const gameOver = document.getElementById("gameOver");
+        const finalScore = document.getElementById("finalScore");
+
+        let jumping = false;
+        let gameRunning = false;
+        let score = 0;
+        let speed = 6;
+        let obstacles = [];
+        let spawnTimer;
+        let gameLoop;
+        let highScore = Number(localStorage.getItem("neonHigh")) || 0;
+
+        highText.textContent = "Best: " + highScore;
+
+        function startGame() {
+
+            obstacles.forEach(o => o.remove());
+            obstacles = [];
+
+            score = 0;
+            speed = 6;
+            jumping = false;
+            gameRunning = true;
+
+            player.style.bottom = "90px";
+
+            scoreText.textContent = "Score: 0";
+
+            startScreen.style.display = "none";
+            gameOver.style.display = "none";
+
+            clearInterval(spawnTimer);
+            clearInterval(gameLoop);
+
+            spawnTimer = setInterval(createObstacle, 1400);
+            gameLoop = setInterval(update, 20);
+        }
+
+        function jump() {
+
+            if (!gameRunning || jumping) return;
+
+            jumping = true;
+
+            let height = 0;
+
+            const up = setInterval(() => {
+
+                height += 8;
+                player.style.bottom = (90 + height) + "px";
+
+                if (height >= 150) {
+
+                    clearInterval(up);
+
+                    const down = setInterval(() => {
+
+                        height -= 8;
+                        player.style.bottom = (90 + height) + "px";
+
+                        if (height <= 0) {
+
+                            clearInterval(down);
+                            height = 0;
+                            player.style.bottom = "90px";
+                            jumping = false;
+                        }
+
+                    },
+                        20);
+                }
+
+            }, 20);
+        }
+
+        function createObstacle() {
+
+            if (!gameRunning) return;
+
+            const obstacle = document.createElement("div");
+
+            obstacle.className = "obstacle";
+
+            obstacle.style.left = game.clientWidth + "px";
+
+            game.appendChild(obstacle);
+
+            obstacles.push(obstacle);
+        }
+
+        function update() {
+
+            if (!gameRunning) return;
+
+            score++;
+
+            scoreText.textContent = "Score: " + Math.floor(score / 10);
+
+            if (score % 500 === 0) {
+                speed += 0.7;
+            }
+
+            const playerRect = player.getBoundingClientRect();
+
+            obstacles.forEach((obstacle, index) => {
+
+                let x = parseFloat(obstacle.style.left);
+
+                x -= speed;
+
+                obstacle.style.left = x + "px";
+
+                const rect = obstacle.getBoundingClientRect();
+
+                if (
+                    playerRect.left < rect.right &&
+                    playerRect.right > rect.left &&
+                    playerRect.top < rect.bottom &&
+                    playerRect.bottom > rect.top
+                ) {
+                    endGame();
+                }
+
+                if (x < -50) {
+                    obstacle.remove();
+                    obstacles.splice(index, 1);
+                }
+
+            });
+        }
+
+        function endGame() {
+
+            gameRunning = false;
+
+            clearInterval(spawnTimer);
+            clearInterval(gameLoop);
+
+            const final = Math.floor(score / 10);
+
+            finalScore.textContent = "Score: " + final;
+
+            if (final > highScore) {
+                highScore = final;
+                localStorage.setItem("neonHigh", highScore);
+                highText.textContent = "Best: " + highScore;
+            }
+
+            gameOver.style.display = "flex";
+        }
+
+        game.addEventListener("pointerdown", function(e) {
+
+            if (e.target.tagName !== "BUTTON") {
+                jump();
+            }
+
+        });
+
+        document.addEventListener("keydown", function(e) {
+
+            if (e.code === "Space" || e.code === "ArrowUp") {
+                jump();
+            }
+
+        });
+    </script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Runner</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            margin: 0;
+            background: #111;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        #game {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(#182848, #4b6cb7);
+        }
+
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        #high {
+            position: absolute;
+            top: 52px;
+            left: 20px;
+            color: white;
+            font-size: 15px;
+            z-index: 10;
+        }
+
+        #player {
+            position: absolute;
+            width: 45px;
+            height: 55px;
+            left: 70px;
+            bottom: 90px;
+            background: #00ffcc;
+            border-radius: 12px;
+            box-shadow: 0 0 20px #00ffcc;
+        }
+
+        .eye {
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            background: #111;
+            border-radius: 50%;
+            top: 12px;
+        }
+
+        .eye.one {
+            left: 10px;
+        }
+        .eye.two {
+            right: 10px;
+        }
+
+        #ground {
+            position: absolute;
+            bottom: 0;
+            height: 90px;
+            width: 100%;
+            background: #111;
+            border-top: 4px solid #00ffcc;
+        }
+
+        .obstacle {
+            position: absolute;
+            bottom: 90px;
+            width: 35px;
+            height: 55px;
+            background: #ff3b6b;
+            border-radius: 6px;
+            box-shadow: 0 0 15px #ff3b6b;
+        }
+
+        #startScreen,
+        #gameOver {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            background: rgba(0,0,0,.45);
+            z-index: 20;
+            text-align: center;
+        }
+
+        #gameOver {
+            display: none;
+        }
+
+        h1 {
+            font-size: 42px;
+            margin: 10px;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            padding: 15px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            background: #00ffcc;
+            color: #111;
+        }
+
+        #hint {
+            margin-top: 15px;
+            font-size: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game">
+
+        <div id="score">
+            Score: 0
+        </div>
+        <div id="high">
+            Best: 0
+        </div>
+
+        <div id="startScreen">
+            <h1>NEON RUNNER</h1>
+            <p>
+                Tap the screen to jump!
+            </p>
+            <button onclick="startGame()">START</button>
+        </div>
+
+        <div id="gameOver">
+            <h1>GAME OVER 💥</h1>
+            <p id="finalScore">
+                Score: 0
+            </p>
+            <button onclick="startGame()">RESTART</button>
+        </div>
+
+        <div id="player">
+            <div class="eye one"></div>
+            <div class="eye two"></div>
+        </div>
+
+        <div id="ground"></div>
+
+    </div>
+
+    <script>
+        const game = document.getElementById("game");
+        const player = document.getElementById("player");
+        const scoreText = document.getElementById("score");
+        const highText = document.getElementById("high");
+        const startScreen = document.getElementById("startScreen");
+        const gameOver = document.getElementById("gameOver");
+        const finalScore = document.getElementById("finalScore");
+
+        let jumping = false;
+        let gameRunning = false;
+        let score = 0;
+        let speed = 6;
+        let obstacles = [];
+        let spawnTimer;
+        let gameLoop;
+        let highScore = Number(localStorage.getItem("neonHigh")) || 0;
+
+        highText.textContent = "Best: " + highScore;
+
+        function startGame() {
+
+            obstacles.forEach(o => o.remove());
+            obstacles = [];
+
+            score = 0;
+            speed = 6;
+            jumping = false;
+            gameRunning = true;
+
+            player.style.bottom = "90px";
+
+            scoreText.textContent = "Score: 0";
+
+            startScreen.style.display = "none";
+            gameOver.style.display = "none";
+
+            clearInterval(spawnTimer);
+            clearInterval(gameLoop);
+
+            spawnTimer = setInterval(createObstacle,
+                1400);
+            gameLoop = setInterval(update,
+                20);
+        }
+
+        function jump() {
+
+            if (!gameRunning || jumping) return;
+
+            jumping = true;
+
+            let height = 0;
+
+            const up = setInterval(() => {
+
+                height += 8;
+                player.style.bottom = (90 + height) + "px";
+
+                if (height >= 150) {
+
+                    clearInterval(up);
+
+                    const down = setInterval(() => {
+
+                        height -= 8;
+                        player.style.bottom = (90 + height) + "px";
+
+                        if (height <= 0) {
+
+                            clearInterval(down);
+                            height = 0;
+                            player.style.bottom = "90px";
+                            jumping = false;
+                        }
+
+                    },
+                        20);
+                }
+
+            }, 20);
+        }
+
+        function createObstacle() {
+
+            if (!gameRunning) return;
+
+            const obstacle = document.createElement("div");
+
+            obstacle.className = "obstacle";
+
+            obstacle.style.left = game.clientWidth + "px";
+
+            game.appendChild(obstacle);
+
+            obstacles.push(obstacle);
+        }
+
+        function update() {
+
+            if (!gameRunning) return;
+
+            score++;
+
+            scoreText.textContent = "Score: " + Math.floor(score / 10);
+
+            if (score % 500 === 0) {
+                speed += 0.7;
+            }
+
+            const playerRect = player.getBoundingClientRect();
+
+            obstacles.forEach((obstacle, index) => {
+
+                let x = parseFloat(obstacle.style.left);
+
+                x -= speed;
+
+                obstacle.style.left = x + "px";
+
+                const rect = obstacle.getBoundingClientRect();
+
+                if (
+                    playerRect.left < rect.right &&
+                    playerRect.right > rect.left &&
+                    playerRect.top < rect.bottom &&
+                    playerRect.bottom > rect.top
+                ) {
+                    endGame();
+                }
+
+                if (x < -50) {
+                    obstacle.remove();
+                    obstacles.splice(index, 1);
+                }
+
+            });
+        }
+
+        function endGame() {
+
+            gameRunning = false;
+
+            clearInterval(spawnTimer);
+            clearInterval(gameLoop);
+
+            const final = Math.floor(score / 10);
+
+            finalScore.textContent = "Score: " + final;
+
+            if (final > highScore) {
+                highScore = final;
+                localStorage.setItem("neonHigh", highScore);
+                highText.textContent = "Best: " + highScore;
+            }
+
+            gameOver.style.display = "flex";
+        }
+
+        game.addEventListener("pointerdown", function(e) {
+
+            if (e.target.tagName !== "BUTTON") {
+                jump();
+            }
+
+        });
+
+        document.addEventListener("keydown", function(e) {
+
+            if (e.code === "Space" || e.code === "ArrowUp") {
+                jump();
+            }
+
+        });
+    </script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Runner</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            margin: 0;
+            background: #111;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        #game {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(#182848, #4b6cb7);
+        }
+
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        #high {
+            position: absolute;
+            top: 52px;
+            left: 20px;
+            color: white;
+            font-size: 15px;
+            z-index: 10;
+        }
+
+        #player {
+            position: absolute;
+            width: 45px;
+            height: 55px;
+            left: 70px;
+            bottom: 90px;
+            background: #00ffcc;
+            border-radius: 12px;
+            box-shadow: 0 0 20px #00ffcc;
+        }
+
+        .eye {
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            background: #111;
+            border-radius: 50%;
+            top: 12px;
+        }
+
+        .eye.one {
+            left: 10px;
+        }
+        .eye.two {
+            right: 10px;
+        }
+
+        #ground {
+            position: absolute;
+            bottom: 0;
+            height: 90px;
+            width: 100%;
+            background: #111;
+            border-top: 4px solid #00ffcc;
+        }
+
+        .obstacle {
+            position: absolute;
+            bottom: 90px;
+            width: 35px;
+            height: 55px;
+            background: #ff3b6b;
+            border-radius: 6px;
+            box-shadow: 0 0 15px #ff3b6b;
+        }
+
+        #startScreen,
+        #gameOver {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            background: rgba(0,0,0,.45);
+            z-index: 20;
+            text-align: center;
+        }
+
+        #gameOver {
+            display: none;
+        }
+
+        h1 {
+            font-size: 42px;
+            margin: 10px;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            padding: 15px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            background: #00ffcc;
+            color: #111;
+        }
+
+        #hint {
+            margin-top: 15px;
+            font-size: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game">
+
+        <div id="score">
+            Score: 0
+        </div>
+        <div id="high">
+            Best: 0
+        </div>
+
+        <div id="startScreen">
+            <h1>NEON RUNNER</h1>
+            <p>
+                Tap the screen to jump!
+            </p>
+            <button onclick="startGame()">START</button>
+        </div>
+
+        <div id="gameOver">
+            <h1>GAME OVER 💥</h1>
+            <p id="finalScore">
+                Score: 0
+            </p>
+            <button onclick="startGame()">RESTART</button>
+        </div>
+
+        <div id="player">
+            <div class="eye one"></div>
+            <div class="eye two"></div>
+        </div>
+
+        <div id="ground"></div>
+
+    </div>
+
+    <script>
+        const game = document.getElementById("game");
+        const player = document.getElementById("player");
+        const scoreText = document.getElementById("score");
+        const highText = document.getElementById("high");
+        const startScreen = document.getElementById("startScreen");
+        const gameOver = document.getElementById("gameOver");
+        const finalScore = document.getElementById("finalScore");
+
+        let jumping = false;
+        let gameRunning = false;
+        let score = 0;
+        let speed = 6;
+        let obstacles = [];
+        let spawnTimer;
+        let gameLoop;
+        let highScore = Number(localStorage.getItem("neonHigh")) || 0;
+
+        highText.textContent = "Best: " + highScore;
+
+        function startGame() {
+
+            obstacles.forEach(o => o.remove());
+            obstacles = [];
+
+            score = 0;
+            speed = 6;
+            jumping = false;
+            gameRunning = true;
+
+            player.style.bottom = "90px";
+
+            scoreText.textContent = "Score: 0";
+
+            startScreen.style.display = "none";
+            gameOver.style.display = "none";
+
+            clearInterval(spawnTimer);
+            clearInterval(gameLoop);
+
+            spawnTimer = setInterval(createObstacle,
+                1400);
+            gameLoop = setInterval(update,
+                20);
+        }
+
+        function jump() {
+
+            if (!gameRunning || jumping) return;
+
+            jumping = true;
+
+            let height = 0;
+
+            const up = setInterval(() => {
+
+                height += 8;
+                player.style.bottom = (90 + height) + "px";
+
+                if (height >= 150) {
+
+                    clearInterval(up);
+
+                    const down = setInterval(() => {
+
+                        height -= 8;
+                        player.style.bottom = (90 + height) + "px";
+
+                        if (height <= 0) {
+
+                            clearInterval(down);
+                            height = 0;
+                            player.style.bottom = "90px";
+                            jumping = false;
+                        }
+
+                    },
+                        20);
+                }
+
+            }, 20);
+        }
+
+        function createObstacle() {
+
+            if (!gameRunning) return;
+
+            const obstacle = document.createElement("div");
+
+            obstacle.className = "obstacle";
+
+            obstacle.style.left = game.clientWidth + "px";
+
+            game.appendChild(obstacle);
+
+            obstacles.push(obstacle);
+        }
+
+        function update() {
+
+            if (!gameRunning) return;
+
+            score++;
+
+            scoreText.textContent = "Score: " + Math.floor(score / 10);
+
+            if (score % 500 === 0) {
+                speed += 0.7;
+            }
+
+            const playerRect = player.getBoundingClientRect();
+
+            obstacles.forEach((obstacle, index) => {
+
+                let x = parseFloat(obstacle.style.left);
+
+                x -= speed;
+
+                obstacle.style.left = x + "px";
+
+                const rect = obstacle.getBoundingClientRect();
+
+                if (
+                    playerRect.left < rect.right &&
+                    playerRect.right > rect.left &&
+                    playerRect.top < rect.bottom &&
+                    playerRect.bottom > rect.top
+                ) {
+                    endGame();
+                }
+
+                if (x < -50) {
+                    obstacle.remove();
+                    obstacles.splice(index, 1);
+                }
+
+            });
+        }
+
+        function endGame() {
+
+            gameRunning = false;
+
+            clearInterval(spawnTimer);
+            clearInterval(gameLoop);
+
+            const final = Math.floor(score / 10);
+
+            finalScore.textContent = "Score: " + final;
+
+            if (final > highScore) {
+                highScore = final;
+                localStorage.setItem("neonHigh", highScore);
+                highText.textContent = "Best: " + highScore;
+            }
+
+            gameOver.style.display = "flex";
+        }
+
+        game.addEventListener("pointerdown", function(e) {
+
+            if (e.target.tagName !== "BUTTON") {
+                jump();
+            }
+
+        });
+
+        document.addEventListener("keydown", function(e) {
+
+            if (e.code === "Space" || e.code === "ArrowUp") {
+                jump();
+            }
+
+        });
+    </script>
+
+</body>
+</html>
